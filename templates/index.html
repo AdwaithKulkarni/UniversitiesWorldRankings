@@ -59,6 +59,7 @@
             border-radius: 20px;
             line-height: 1.5;
             word-wrap: break-word;
+            white-space: pre-wrap; /* Preserve whitespace and line breaks for formatted details */
         }
 
         .user-message {
@@ -173,13 +174,19 @@
             const sendBtn = document.getElementById('send-btn');
             const chatMessages = document.getElementById('chat-messages');
 
-            // Function to add a message bubble to the chat history
             const displayMessage = (text, senderClass) => {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message-bubble ${senderClass}`;
                 messageDiv.textContent = text;
                 chatMessages.appendChild(messageDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            };
+
+            // Helper to check if message is a university query (client-side heuristic)
+            const isUniversityQueryClient = (message) => {
+                const keywords = ['university', 'college', 'rank', 'score', 'location', 'reputation', 'employment', 'sustainability', 'citations', 'details of', 'tell me about'];
+                const messageLower = message.toLowerCase();
+                return keywords.some(keyword => messageLower.includes(keyword)) || messageLower.length > 5 && messageLower.includes('university'); // Simple check
             };
 
             const sendMessage = async () => {
@@ -189,54 +196,84 @@
                 }
 
                 displayMessage(userMessage, 'user-message');
-                chatInput.value = ''; // Clear input field
+                chatInput.value = '';
 
                 const loadingMessageDiv = document.createElement('div');
                 loadingMessageDiv.className = 'message-bubble loading-message';
-                loadingMessageDiv.textContent = 'Thinking...';
+                loadingMessageDiv.textContent = 'Fetching data... Please wait 5 seconds.';
                 chatMessages.appendChild(loadingMessageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
 
-                // Simulate 5-second delay for AI "thinking"
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                await new Promise(resolve => setTimeout(resolve, 5000)); // 5-second delay
 
                 try {
-                    const response = await fetch('/api/chat', { // New endpoint for chatbot
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ message: userMessage }),
-                    });
+                    const userMessageLower = userMessage.toLowerCase();
+                    let aiResponseText = '';
 
-                    const data = await response.json();
+                    // Handle casual greetings directly in frontend
+                    if (userMessageLower.includes("hello") || userMessageLower.includes("hi")) {
+                        aiResponseText = "Hello there! I'm here to help you with World University Rankings. What can I assist you with today?";
+                    } else if (userMessageLower.includes("how are you")) {
+                        aiResponseText = "I'm a computer program, so I don't have feelings, but I'm ready to help you with university data!";
+                    } else if (userMessageLower.includes("thank")) {
+                        aiResponseText = "You're welcome! Let me know if you need anything else.";
+                    } else if (userMessageLower.includes("what can you do") || userMessageLower.includes("help")) {
+                        aiResponseText = "I can provide detailed information about universities from the QS World University Rankings 2025. Just ask me about a university by name, like 'Tell me about Harvard University'.";
+                    } else if (isUniversityQueryClient(userMessage)) {
+                        // If it seems like a university query, send to Python backend
+                        const response = await fetch('/api/query', { // Using the /api/query endpoint
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ university_name: userMessage }), // Send the full message as university_name
+                        });
 
-                    // Remove loading message
-                    chatMessages.removeChild(loadingMessageDiv);
+                        const data = await response.json();
 
-                    if (data.error) {
-                        displayMessage(`Error: ${data.error}`, 'ai-message');
-                    } else {
-                        // Backend will return a 'response' field for chat, or structured data for university
-                        if (data.response) { // General chat response from LLM
-                            displayMessage(data.response, 'ai-message');
-                        } else { // University details (formatted by frontend)
+                        if (data.error) {
+                            aiResponseText = data.error; // Display error from backend (e.g., "Sorry, could not find...")
+                        } else {
+                            // Format university details for display
                             let uniDetails = `Here are the details for ${data.Institution_Name}:\n\n`;
-                            for (const key in data) {
-                                if (key !== 'Institution_Name') {
-                                    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
-                                    uniDetails += `${formattedKey}: ${data[key]}\n`;
+                            const allColumns = [
+                                'RANK_2025', 'RANK_2024', 'Location', 'Region', 'SIZE',
+                                'FOCUS', 'RES.', 'STATUS', 'Academic_Reputation_Score',
+                                'Academic_Reputation_Rank', 'Employer_Reputation_Score',
+                                'Employer_Reputation_Rank', 'Faculty_Student_Score',
+                                'Faculty_Student_Rank', 'Citations_per_Faculty_Score',
+                                'Citations_per_Faculty_Rank', 'International_Faculty_Score',
+                                'International_Faculty_Rank', 'International_Students_Score',
+                                'International_Students_Rank', 'International_Research_Network_Score',
+                                'International_Research_Network_Rank', 'Employment_Outcomes_Score',
+                                'Employment_Outcomes_Rank', 'Sustainability_Score',
+                                'Sustainability_Rank', 'Overall_Score'
+                            ];
+                            for (const col of allColumns) {
+                                if (data[col] !== undefined) { // Check if column exists in data
+                                    const formattedColName = col.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+                                    uniDetails += `${formattedColName}: ${data[col]}\n`;
                                 }
                             }
-                            displayMessage(uniDetails, 'ai-message');
+                            aiResponseText = uniDetails;
                         }
+                    } else {
+                        // Default response for non-recognized casual talk
+                        aiResponseText = "I'm designed to answer questions about university rankings. Could you please ask me something related to universities?";
                     }
+
+                    // Remove loading message and display final AI response
+                    if (chatMessages.contains(loadingMessageDiv)) {
+                        chatMessages.removeChild(loadingMessageDiv);
+                    }
+                    displayMessage(aiResponseText, 'ai-message');
+
                 } catch (error) {
                     // Remove loading message even on fetch error
                     if (chatMessages.contains(loadingMessageDiv)) {
                         chatMessages.removeChild(loadingMessageDiv);
                     }
-                    displayMessage('An error occurred while connecting to the AI. Please try again.', 'error-message');
+                    displayMessage('An error occurred. Please try again.', 'error-message');
                     console.error('Fetch error:', error);
                 }
             };
