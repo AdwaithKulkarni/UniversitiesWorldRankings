@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>University Rankings Q&A</title>
+    <title>University Rankings AI Chatbot</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
@@ -12,197 +12,239 @@
             background-color: #121212;
             color: #e0e0e0;
             margin: 0;
-            padding: 40px;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: flex-start;
             min-height: 100vh;
+            box-sizing: border-box; /* Include padding in element's total width and height */
         }
 
-        .container {
+        .chat-container {
             width: 100%;
-            max-width: 800px;
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 10px;
-        }
-
-        p {
-            color: #a0a0a0;
-            font-size: 1.1rem;
-            margin-bottom: 30px;
-        }
-
-        .search-box {
+            max-width: 700px;
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             display: flex;
-            justify-content: center;
-            margin-bottom: 40px;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 80vh;
+            max-height: 95vh;
         }
 
-        #uni-input {
-            width: 60%;
+        .chat-header {
+            background-color: #282828;
             padding: 15px 20px;
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            scroll-behavior: smooth;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-message {
+            background-color: #333;
+            color: #e0e0e0;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .loading-message {
+            background-color: #444;
+            color: #a0a0a0;
+            align-self: flex-start;
+            font-style: italic;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #333;
+            background-color: #282828;
+        }
+
+        #chat-input {
+            flex-grow: 1;
+            padding: 12px 18px;
             font-size: 1rem;
             border: 1px solid #444;
-            border-radius: 8px 0 0 8px;
+            border-radius: 25px;
             background-color: #222;
             color: #fff;
             outline: none;
+            margin-right: 10px;
         }
 
-        #search-btn {
-            padding: 15px 30px;
+        #send-btn {
+            padding: 12px 25px;
             font-size: 1rem;
             font-weight: 500;
             border: none;
             background-color: #007bff;
             color: white;
             cursor: pointer;
-            border-radius: 0 8px 8px 0;
+            border-radius: 25px;
             transition: background-color 0.2s;
         }
 
-        #search-btn:hover {
+        #send-btn:hover {
             background-color: #0056b3;
         }
 
-        #results-container {
-            text-align: left;
-            background-color: #1e1e1e;
-            padding: 30px;
-            border-radius: 8px;
-            border: 1px solid #333;
-        }
-
-        .result-header {
-            font-size: 1.8rem;
-            color: #fff;
-            margin-top: 0;
-            border-bottom: 2px solid #007bff;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-
-        .result-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px 30px;
-        }
-
-        .detail-item {
-            background-color: #282828;
-            padding: 12px;
-            border-radius: 6px;
-        }
-
-        .detail-key {
-            display: block;
-            font-weight: 500;
-            color: #a0a0a0;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-
-        .detail-value {
-            display: block;
-            font-weight: 400;
-            color: #e0e0e0;
-            font-size: 1.1rem;
-        }
-
-        .error {
+        .error-message {
             color: #ff4d4d;
-            font-size: 1.2rem;
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .chat-container {
+                min-height: 90vh;
+                max-height: 98vh;
+            }
+            .chat-header {
+                font-size: 1.2rem;
+            }
+            .chat-messages {
+                padding: 15px;
+            }
+            .message-bubble {
+                max-width: 90%;
+                padding: 10px 15px;
+            }
+            #chat-input {
+                padding: 10px 15px;
+            }
+            #send-btn {
+                padding: 10px 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎓 World University Rankings</h1>
-        <p>Enter a university name to get its complete details.</p>
-        <div class="search-box">
-            <input type="text" id="uni-input" placeholder="e.g., Harvard University">
-            <button id="search-btn">Search</button>
+    <div class="chat-container">
+        <div class="chat-header">
+            University Rankings AI
         </div>
-        <div id="results-container"></div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="message-bubble ai-message">Hello! I'm your AI assistant for World University Rankings. Ask me anything about universities, like "What is the rank of Harvard University?" or just say "Hi!"</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type your message...">
+            <button id="send-btn">Send</button>
+        </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const searchBtn = document.getElementById('search-btn');
-            const uniInput = document.getElementById('uni-input');
-            const resultsContainer = document.getElementById('results-container');
+            const chatInput = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
+            const chatMessages = document.getElementById('chat-messages');
 
-            const performSearch = async () => {
-                const universityName = uniInput.value.trim();
-                if (!universityName) {
+            // Function to add a message bubble to the chat history
+            const displayMessage = (text, senderClass) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message-bubble ${senderClass}`;
+                messageDiv.textContent = text;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+            };
+
+            const sendMessage = async () => {
+                const userMessage = chatInput.value.trim();
+                if (!userMessage) {
                     return;
                 }
 
-                resultsContainer.innerHTML = '<div class="detail-value">Loading...</div>';
+                displayMessage(userMessage, 'user-message');
+                chatInput.value = ''; // Clear input field
+
+                const loadingMessageDiv = document.createElement('div');
+                loadingMessageDiv.className = 'message-bubble loading-message';
+                loadingMessageDiv.textContent = 'Thinking...';
+                chatMessages.appendChild(loadingMessageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Simulate 5-second delay for AI "thinking"
+                await new Promise(resolve => setTimeout(resolve, 5000));
 
                 try {
-                    const response = await fetch('/api/query', {
+                    const response = await fetch('/api/chat', { // New endpoint for chatbot
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ university_name: universityName }),
+                        body: JSON.stringify({ message: userMessage }),
                     });
 
                     const data = await response.json();
-                    displayResults(data);
-                } catch (error) {
-                    resultsContainer.innerHTML = '<div class="error">An error occurred while fetching data.</div>';
-                }
-            };
 
-            const displayResults = (data) => {
-                resultsContainer.innerHTML = ''; 
+                    // Remove loading message
+                    chatMessages.removeChild(loadingMessageDiv);
 
-                if (data.error) {
-                    resultsContainer.innerHTML = `<div class="error">${data.error}</div>`;
-                    return;
-                }
-
-                const header = document.createElement('h2');
-                header.className = 'result-header';
-                header.textContent = data.Institution_Name;
-                resultsContainer.appendChild(header);
-
-                const grid = document.createElement('div');
-                grid.className = 'result-grid';
-
-                for (const key in data) {
-                    if (key !== 'Institution_Name') {
-                        const item = document.createElement('div');
-                        item.className = 'detail-item';
-                        
-                        const keySpan = document.createElement('span');
-                        keySpan.className = 'detail-key';
-                        keySpan.textContent = key.replace(/_/g, ' ');
-                        
-                        const valueSpan = document.createElement('span');
-                        valueSpan.className = 'detail-value';
-                        valueSpan.textContent = data[key];
-                        
-                        item.appendChild(keySpan);
-                        item.appendChild(valueSpan);
-                        grid.appendChild(item);
+                    if (data.error) {
+                        displayMessage(`Error: ${data.error}`, 'ai-message');
+                    } else {
+                        // Backend will return a 'response' field for chat, or structured data for university
+                        if (data.response) { // General chat response from LLM
+                            displayMessage(data.response, 'ai-message');
+                        } else { // University details (formatted by frontend)
+                            let uniDetails = `Here are the details for ${data.Institution_Name}:\n\n`;
+                            for (const key in data) {
+                                if (key !== 'Institution_Name') {
+                                    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+                                    uniDetails += `${formattedKey}: ${data[key]}\n`;
+                                }
+                            }
+                            displayMessage(uniDetails, 'ai-message');
+                        }
                     }
+                } catch (error) {
+                    // Remove loading message even on fetch error
+                    if (chatMessages.contains(loadingMessageDiv)) {
+                        chatMessages.removeChild(loadingMessageDiv);
+                    }
+                    displayMessage('An error occurred while connecting to the AI. Please try again.', 'error-message');
+                    console.error('Fetch error:', error);
                 }
-                resultsContainer.appendChild(grid);
             };
 
-            searchBtn.addEventListener('click', performSearch);
-            uniInput.addEventListener('keyup', (event) => {
+            sendBtn.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keyup', (event) => {
                 if (event.key === 'Enter') {
-                    performSearch();
+                    sendMessage();
                 }
             });
         });
