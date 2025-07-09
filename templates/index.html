@@ -182,12 +182,31 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             };
 
-            // Helper to check if message is a university query (client-side heuristic)
-            const isUniversityQueryClient = (message) => {
-                const keywords = ['university', 'college', 'rank', 'score', 'location', 'reputation', 'employment', 'sustainability', 'citations', 'details of', 'tell me about'];
-                const messageLower = message.toLowerCase();
-                return keywords.some(keyword => messageLower.includes(keyword)) || messageLower.length > 5 && messageLower.includes('university'); // Simple check
+            // This helper is now only for simple greetings. All other inputs will go to backend.
+            const isCasualGreeting = (message) => {
+                const messageLower = message.toLowerCase().trim();
+                return messageLower.includes("hello") || 
+                       messageLower.includes("hi") ||
+                       messageLower.includes("how are you") ||
+                       messageLower.includes("thank") ||
+                       messageLower.includes("what can you do") ||
+                       messageLower.includes("help");
             };
+
+            const getCasualResponse = (message) => {
+                const messageLower = message.toLowerCase().trim();
+                if (messageLower.includes("hello") || messageLower.includes("hi")) {
+                    return "Hello there! I'm here to help you with World University Rankings. What can I assist you with today?";
+                } else if (messageLower.includes("how are you")) {
+                    return "I'm a computer program, so I don't have feelings, but I'm ready to help you with university data!";
+                } else if (messageLower.includes("thank")) {
+                    return "You're welcome! Let me know if you need anything else.";
+                } else if (messageLower.includes("what can you do") || messageLower.includes("help")) {
+                    return "I can provide detailed information about universities from the QS World University Rankings 2025. Just ask me about a university by name, like 'Tell me about Harvard University'.";
+                }
+                return "I'm designed to answer questions about university rankings. Could you please ask me something related to universities?";
+            };
+
 
             const sendMessage = async () => {
                 const userMessage = chatInput.value.trim();
@@ -207,20 +226,13 @@
                 await new Promise(resolve => setTimeout(resolve, 5000)); // 5-second delay
 
                 try {
-                    const userMessageLower = userMessage.toLowerCase();
                     let aiResponseText = '';
 
                     // Handle casual greetings directly in frontend
-                    if (userMessageLower.includes("hello") || userMessageLower.includes("hi")) {
-                        aiResponseText = "Hello there! I'm here to help you with World University Rankings. What can I assist you with today?";
-                    } else if (userMessageLower.includes("how are you")) {
-                        aiResponseText = "I'm a computer program, so I don't have feelings, but I'm ready to help you with university data!";
-                    } else if (userMessageLower.includes("thank")) {
-                        aiResponseText = "You're welcome! Let me know if you need anything else.";
-                    } else if (userMessageLower.includes("what can you do") || userMessageLower.includes("help")) {
-                        aiResponseText = "I can provide detailed information about universities from the QS World University Rankings 2025. Just ask me about a university by name, like 'Tell me about Harvard University'.";
-                    } else if (isUniversityQueryClient(userMessage)) {
-                        // If it seems like a university query, send to Python backend
+                    if (isCasualGreeting(userMessage)) {
+                        aiResponseText = getCasualResponse(userMessage);
+                    } else {
+                        // For all other inputs, send to Python backend for university lookup
                         const response = await fetch('/api/query', { // Using the /api/query endpoint
                             method: 'POST',
                             headers: {
@@ -232,7 +244,8 @@
                         const data = await response.json();
 
                         if (data.error) {
-                            aiResponseText = data.error; // Display error from backend (e.g., "Sorry, could not find...")
+                            // If backend returns an error (e.g., university not found)
+                            aiResponseText = data.error; 
                         } else {
                             // Format university details for display
                             let uniDetails = `Here are the details for ${data.Institution_Name}:\n\n`;
@@ -250,16 +263,14 @@
                                 'Sustainability_Rank', 'Overall_Score'
                             ];
                             for (const col of allColumns) {
-                                if (data[col] !== undefined) { // Check if column exists in data
+                                // Ensure the column exists in the returned data before trying to access it
+                                if (data.hasOwnProperty(col)) { 
                                     const formattedColName = col.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
                                     uniDetails += `${formattedColName}: ${data[col]}\n`;
                                 }
                             }
                             aiResponseText = uniDetails;
                         }
-                    } else {
-                        // Default response for non-recognized casual talk
-                        aiResponseText = "I'm designed to answer questions about university rankings. Could you please ask me something related to universities?";
                     }
 
                     // Remove loading message and display final AI response
