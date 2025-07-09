@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>University Rankings AI Chatbot</title>
+    <title>University Rankings Chatbot</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
@@ -17,7 +17,7 @@
             justify-content: center;
             align-items: flex-start;
             min-height: 100vh;
-            box-sizing: border-box; /* Include padding in element's total width and height */
+            box-sizing: border-box;
         }
 
         .chat-container {
@@ -59,7 +59,7 @@
             border-radius: 20px;
             line-height: 1.5;
             word-wrap: break-word;
-            white-space: pre-wrap; /* Preserve whitespace and line breaks for formatted details */
+            white-space: pre-wrap;
         }
 
         .user-message {
@@ -157,10 +157,10 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            University Rankings AI
+            University Rankings Chatbot
         </div>
         <div class="chat-messages" id="chat-messages">
-            <div class="message-bubble ai-message">Hello! I'm your AI assistant for World University Rankings. Ask me anything about universities, like "What is the rank of Harvard University?" or just say "Hi!"</div>
+            <div class="message-bubble ai-message">Hello! I'm your assistant for World University Rankings. Ask me anything about universities, or just say "Hi!"</div>
         </div>
         <div class="chat-input-area">
             <input type="text" id="chat-input" placeholder="Type your message...">
@@ -182,31 +182,99 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             };
 
-            // This helper is now only for simple greetings. All other inputs will go to backend.
+            // Helper to determine if message is a simple casual greeting
             const isCasualGreeting = (message) => {
                 const messageLower = message.toLowerCase().trim();
-                return messageLower.includes("hello") || 
-                       messageLower.includes("hi") ||
+                return messageLower === "hello" ||
+                       messageLower === "hi" ||
                        messageLower.includes("how are you") ||
-                       messageLower.includes("thank") ||
+                       messageLower.includes("thank you") ||
+                       messageLower.includes("thanks") ||
                        messageLower.includes("what can you do") ||
-                       messageLower.includes("help");
+                       messageLower.includes("help me");
             };
 
+            // Provides hardcoded responses for casual talk
             const getCasualResponse = (message) => {
                 const messageLower = message.toLowerCase().trim();
-                if (messageLower.includes("hello") || messageLower.includes("hi")) {
+                if (messageLower === "hello" || messageLower === "hi") {
                     return "Hello there! I'm here to help you with World University Rankings. What can I assist you with today?";
                 } else if (messageLower.includes("how are you")) {
                     return "I'm a computer program, so I don't have feelings, but I'm ready to help you with university data!";
-                } else if (messageLower.includes("thank")) {
+                } else if (messageLower.includes("thank you") || messageLower.includes("thanks")) {
                     return "You're welcome! Let me know if you need anything else.";
-                } else if (messageLower.includes("what can you do") || messageLower.includes("help")) {
-                    return "I can provide detailed information about universities from the QS World University Rankings 2025. Just ask me about a university by name, like 'Tell me about Harvard University'.";
+                } else if (messageLower.includes("what can you do") || messageLower.includes("help me")) {
+                    return "I can provide detailed information about universities from the QS World University Rankings 2025. Just ask me about a university by name, like 'Tell me about Harvard University' or simply type 'Harvard'.";
                 }
+                // Fallback for other non-recognized casual inputs
                 return "I'm designed to answer questions about university rankings. Could you please ask me something related to universities?";
             };
 
+            // Maps common user requests to the exact column names from your CSV
+            const metricKeywordsMap = {
+                'rank': ['RANK_2025', 'RANK_2024', 'Overall_Score'],
+                'ranking': ['RANK_2025', 'RANK_2024', 'Overall_Score'],
+                'location': ['Location', 'Region'],
+                'country': ['Location', 'Region'],
+                'city': ['Location'],
+                'size': ['SIZE'],
+                'focus': ['FOCUS'],
+                'res.': ['RES.'], // Direct match for 'RES.' column
+                'status': ['STATUS'],
+                'academic reputation': ['Academic_Reputation_Score', 'Academic_Reputation_Rank'],
+                'employer reputation': ['Employer_Reputation_Score', 'Employer_Reputation_Rank'],
+                'faculty student': ['Faculty_Student_Score', 'Faculty_Student_Rank'],
+                'citations': ['Citations_per_Faculty_Score', 'Citations_per_Faculty_Rank'],
+                'international faculty': ['International_Faculty_Score', 'International_Faculty_Rank'],
+                'international students': ['International_Students_Score', 'International_Students_Rank'],
+                'international research network': ['International_Research_Network_Network_Score', 'International_Research_Network_Rank'],
+                'employment outcomes': ['Employment_Outcomes_Score', 'Employment_Outcomes_Rank'],
+                'sustainability': ['Sustainability_Score', 'Sustainability_Rank'],
+                'overall score': ['Overall_Score'],
+                'score': ['Overall_Score'] // General 'score'
+            };
+
+            // Client-side heuristics to extract a potential university name from a sentence
+            const extractUniversityName = (message) => {
+                const messageLower = message.toLowerCase();
+                // Prioritize explicit phrases like "about X", "of X", "for X"
+                const phraseMatch = message.match(/(?:about|of|for|tell me about|what is the|details of|info on)\s+([A-Za-z0-9\s.,'&()-]+?)(?:\?|\.|the rank|the score|the location|$)/i);
+                if (phraseMatch && phraseMatch[1]) {
+                    let extracted = phraseMatch[1].trim();
+                    // Clean up common trailing words that are part of the query, not the name
+                    extracted = extracted.replace(/\s*(university|institute|college|school|tech|polytechnic|rank|score|location|details)\s*$/i, '');
+                    if (extracted.length > 3) return extracted; // Ensure it's not too short
+                }
+
+                // Look for capitalized words that might be part of a university name (e.g., "Harvard University")
+                const capitalizedWordsMatch = message.match(/\b[A-Z][a-z0-9.'&-]+\b(?:\s+\b[A-Z][a-z0-9.'&-]+\b)*\s*(?:University|Institute|College|School|Tech|Polytechnic)?/g);
+                if (capitalizedWordsMatch) {
+                    const filtered = capitalizedWordsMatch.filter(word => {
+                        const lower = word.toLowerCase();
+                        // Filter out common non-university capitalized words or single letters
+                        return !['what', 'where', 'how', 'who', 'when', 'why', 'is', 'the', 'a', 'an', 'for', 'of', 'and', 'or', 'to', 'in', 'on', 'at', 'with', 'by', 'from', 'about', 'can', 'you', 'me', 'give', 'show', 'tell', 'find'].includes(lower);
+                    });
+                    if (filtered.length > 0) return filtered.join(' ');
+                }
+
+                // As a fallback, if it's not a greeting, assume the entire message is the university name
+                if (!isCasualGreeting(message)) {
+                    return message.replace(/\s*(what is the|tell me about|give me the|find the|show me the)\s*/i, '').replace('?', '').trim();
+                }
+                return null;
+            };
+
+            // Function to find specific requested metrics in the user's message
+            const getRequestedMetrics = (message) => {
+                const messageLower = message.toLowerCase();
+                const requestedMetrics = new Set();
+                for (const keyword in metricKeywordsMap) {
+                    if (messageLower.includes(keyword)) {
+                        metricKeywordsMap[keyword].forEach(metric => requestedMetrics.add(metric));
+                    }
+                }
+                return Array.from(requestedMetrics);
+            };
 
             const sendMessage = async () => {
                 const userMessage = chatInput.value.trim();
@@ -219,7 +287,7 @@
 
                 const loadingMessageDiv = document.createElement('div');
                 loadingMessageDiv.className = 'message-bubble loading-message';
-                loadingMessageDiv.textContent = 'Thinking....';
+                loadingMessageDiv.textContent = 'Fetching data... Please wait 5 seconds.';
                 chatMessages.appendChild(loadingMessageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -228,48 +296,95 @@
                 try {
                     let aiResponseText = '';
 
-                    // Handle casual greetings directly in frontend
+                    // Step 1: Handle casual greetings directly in frontend
                     if (isCasualGreeting(userMessage)) {
                         aiResponseText = getCasualResponse(userMessage);
                     } else {
-                        // For all other inputs, send to Python backend for university lookup
-                        const response = await fetch('/api/query', { // Using the /api/query endpoint
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ university_name: userMessage }), // Send the full message as university_name
-                        });
-
-                        const data = await response.json();
-
-                        if (data.error) {
-                            // If backend returns an error (e.g., university not found)
-                            aiResponseText = data.error; 
+                        // Step 2: Attempt to extract university name from the message
+                        const extractedUniName = extractUniversityName(userMessage);
+                        
+                        if (!extractedUniName) {
+                            aiResponseText = "I couldn't identify a university name in your request. Could you please specify it clearly?";
                         } else {
-                            // Format university details for display
-                            let uniDetails = `Here are the details for ${data.Institution_Name}:\n\n`;
-                            const allColumns = [
-                                'RANK_2025', 'RANK_2024', 'Location', 'Region', 'SIZE',
-                                'FOCUS', 'RES.', 'STATUS', 'Academic_Reputation_Score',
-                                'Academic_Reputation_Rank', 'Employer_Reputation_Score',
-                                'Employer_Reputation_Rank', 'Faculty_Student_Score',
-                                'Faculty_Student_Rank', 'Citations_per_Faculty_Score',
-                                'Citations_per_Faculty_Rank', 'International_Faculty_Score',
-                                'International_Faculty_Rank', 'International_Students_Score',
-                                'International_Students_Rank', 'International_Research_Network_Score',
-                                'International_Research_Network_Rank', 'Employment_Outcomes_Score',
-                                'Employment_Outcomes_Rank', 'Sustainability_Score',
-                                'Sustainability_Rank', 'Overall_Score'
-                            ];
-                            for (const col of allColumns) {
-                                // Ensure the column exists in the returned data before trying to access it
-                                if (data.hasOwnProperty(col)) { 
-                                    const formattedColName = col.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
-                                    uniDetails += `${formattedColName}: ${data[col]}\n`;
+                            // Step 3: Send extracted university name to Python backend for lookup
+                            const response = await fetch('/api/query', { // Using the /api/query endpoint
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ university_name: extractedUniName }), // Send only the extracted name
+                            });
+
+                            const data = await response.json();
+
+                            if (data.error) {
+                                // If backend returns an error (e.g., university not found)
+                                aiResponseText = data.error;
+                            } else {
+                                // University found, now check for specific metric requests
+                                const requestedMetrics = getRequestedMetrics(userMessage);
+
+                                if (requestedMetrics.length > 0) {
+                                    // Display only specific requested metrics
+                                    let specificDetails = `Here are the requested details for ${data.Institution_Name}:\n\n`;
+                                    let foundAny = false;
+                                    for (const metricKey of requestedMetrics) {
+                                        if (data.hasOwnProperty(metricKey) && data[metricKey] !== null && data[metricKey] !== undefined) {
+                                            const formattedColName = metricKey.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                            specificDetails += `${formattedColName}: ${data[metricKey]}\n`;
+                                            foundAny = true;
+                                        }
+                                    }
+                                    if (!foundAny) {
+                                        specificDetails += `I couldn't find those specific details for ${data.Institution_Name}. Here's the overall information:\n\n`;
+                                        // Fallback to all details if specific metrics weren't found or were N/A
+                                        const allColumnsDisplayOrder = [
+                                            'RANK_2025', 'RANK_2024', 'Location', 'Region', 'SIZE',
+                                            'FOCUS', 'RES.', 'STATUS', 'Academic_Reputation_Score',
+                                            'Academic_Reputation_Rank', 'Employer_Reputation_Score',
+                                            'Employer_Reputation_Rank', 'Faculty_Student_Score',
+                                            'Faculty_Student_Rank', 'Citations_per_Faculty_Score',
+                                            'Citations_per_Faculty_Rank', 'International_Faculty_Score',
+                                            'International_Faculty_Rank', 'International_Students_Score',
+                                            'International_Students_Rank', 'International_Research_Network_Network_Score',
+                                            'International_Research_Network_Rank', 'Employment_Outcomes_Score',
+                                            'Employment_Outcomes_Rank', 'Sustainability_Score',
+                                            'Sustainability_Rank', 'Overall_Score'
+                                        ];
+                                        for (const col of allColumnsDisplayOrder) {
+                                            if (data.hasOwnProperty(col)) {
+                                                const formattedColName = col.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                                specificDetails += `${formattedColName}: ${data[col]}\n`;
+                                            }
+                                        }
+                                    }
+                                    aiResponseText = specificDetails;
+
+                                } else {
+                                    // If no specific metrics requested, display all details
+                                    let allDetails = `Here are the complete details for ${data.Institution_Name}:\n\n`;
+                                    const allColumnsDisplayOrder = [
+                                        'RANK_2025', 'RANK_2024', 'Location', 'Region', 'SIZE',
+                                        'FOCUS', 'RES.', 'STATUS', 'Academic_Reputation_Score',
+                                        'Academic_Reputation_Rank', 'Employer_Reputation_Score',
+                                        'Employer_Reputation_Rank', 'Faculty_Student_Score',
+                                        'Faculty_Student_Rank', 'Citations_per_Faculty_Score',
+                                        'Citations_per_Faculty_Rank', 'International_Faculty_Score',
+                                        'International_Faculty_Rank', 'International_Students_Score',
+                                        'International_Students_Rank', 'International_Research_Network_Network_Score',
+                                        'International_Research_Network_Rank', 'Employment_Outcomes_Score',
+                                        'Employment_Outcomes_Rank', 'Sustainability_Score',
+                                        'Sustainability_Rank', 'Overall_Score'
+                                    ];
+                                    for (const col of allColumnsDisplayOrder) {
+                                        if (data.hasOwnProperty(col)) {
+                                            const formattedColName = col.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                            allDetails += `${formattedColName}: ${data[col]}\n`;
+                                        }
+                                    }
+                                    aiResponseText = allDetails;
                                 }
                             }
-                            aiResponseText = uniDetails;
                         }
                     }
 
